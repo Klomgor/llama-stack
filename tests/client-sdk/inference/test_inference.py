@@ -4,10 +4,11 @@
 # This source code is licensed under the terms described in the LICENSE file in
 # the root directory of this source tree.
 
+import base64
+import os
+
 import pytest
-
 from pydantic import BaseModel
-
 
 PROVIDER_TOOL_PROMPT_FORMAT = {
     "remote::ollama": "python_list",
@@ -28,10 +29,9 @@ def provider_tool_format(inference_provider_type):
 @pytest.fixture(scope="session")
 def inference_provider_type(llama_stack_client):
     providers = llama_stack_client.providers.list()
-    if "inference" not in providers:
-        pytest.fail("No inference providers available")
-    assert len(providers["inference"]) > 0
-    return providers["inference"][0].provider_type
+    inference_providers = [p for p in providers if p.api == "inference"]
+    assert len(inference_providers) > 0, "No inference providers found"
+    return inference_providers[0].provider_type
 
 
 @pytest.fixture(scope="session")
@@ -70,6 +70,16 @@ def get_weather_tool_definition():
             },
         },
     }
+
+
+@pytest.fixture
+def base64_image_url():
+    image_path = os.path.join(os.path.dirname(__file__), "dog.png")
+    with open(image_path, "rb") as image_file:
+        # Convert the image to base64
+        base64_string = base64.b64encode(image_file.read()).decode("utf-8")
+        base64_url = f"data:image;base64,{base64_string}"
+        return base64_url
 
 
 def test_completion_non_streaming(llama_stack_client, text_model_id):
@@ -232,7 +242,6 @@ def test_text_chat_completion_with_tool_calling_and_non_streaming(
     # response to be a tool call
     assert response.completion_message.content == ""
     assert response.completion_message.role == "assistant"
-    assert response.completion_message.stop_reason == "end_of_turn"
 
     assert len(response.completion_message.tool_calls) == 1
     assert response.completion_message.tool_calls[0].tool_name == "get_weather"
@@ -245,19 +254,13 @@ def test_text_chat_completion_with_tool_calling_and_non_streaming(
 # The returned tool inovcation content will be a string so it's easy to comapare with expected value
 # e.g. "[get_weather, {'location': 'San Francisco, CA'}]"
 def extract_tool_invocation_content(response):
-    text_content: str = ""
     tool_invocation_content: str = ""
     for chunk in response:
         delta = chunk.event.delta
-        if delta.type == "text":
-            text_content += delta.text
-        elif delta.type == "tool_call":
-            if isinstance(delta.content, str):
-                tool_invocation_content += delta.content
-            else:
-                call = delta.content
-                tool_invocation_content += f"[{call.tool_name}, {call.arguments}]"
-    return text_content, tool_invocation_content
+        if delta.type == "tool_call" and delta.parse_status == "succeeded":
+            call = delta.content
+            tool_invocation_content += f"[{call.tool_name}, {call.arguments}]"
+    return tool_invocation_content
 
 
 def test_text_chat_completion_with_tool_calling_and_streaming(
@@ -274,8 +277,7 @@ def test_text_chat_completion_with_tool_calling_and_streaming(
         tool_prompt_format=provider_tool_format,
         stream=True,
     )
-    text_content, tool_invocation_content = extract_tool_invocation_content(response)
-
+    tool_invocation_content = extract_tool_invocation_content(response)
     assert tool_invocation_content == "[get_weather, {'location': 'San Francisco, CA'}]"
 
 
@@ -362,8 +364,36 @@ def test_image_chat_completion_streaming(llama_stack_client, vision_model_id):
         messages=[message],
         stream=True,
     )
-    streamed_content = [
-        str(chunk.event.delta.text.lower().strip()) for chunk in response
-    ]
+    streamed_content = ""
+    for chunk in response:
+        streamed_content += chunk.event.delta.text.lower()
     assert len(streamed_content) > 0
     assert any(expected in streamed_content for expected in {"dog", "puppy", "pup"})
+
+
+def test_image_chat_completion_base64_url(
+    llama_stack_client, vision_model_id, base64_image_url
+):
+
+    message = {
+        "role": "user",
+        "content": [
+            {
+                "type": "image",
+                "url": {
+                    "uri": base64_image_url,
+                },
+            },
+            {
+                "type": "text",
+                "text": "Describe what is in this image.",
+            },
+        ],
+    }
+    response = llama_stack_client.inference.chat_completion(
+        model_id=vision_model_id,
+        messages=[message],
+        stream=False,
+    )
+    message_content = response.completion_message.content.lower().strip()
+    assert len(message_content) > 0

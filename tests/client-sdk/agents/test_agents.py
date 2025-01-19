@@ -80,7 +80,7 @@ class TestClientTool(ClientTool):
 
 
 @pytest.fixture(scope="session")
-def agent_config(llama_stack_client):
+def model_id(llama_stack_client):
     available_models = [
         model.identifier
         for model in llama_stack_client.models.list()
@@ -88,6 +88,11 @@ def agent_config(llama_stack_client):
     ]
     model_id = available_models[0]
     print(f"Using model: {model_id}")
+    return model_id
+
+
+@pytest.fixture(scope="session")
+def agent_config(llama_stack_client, model_id):
     available_shields = [
         shield.identifier for shield in llama_stack_client.shields.list()
     ]
@@ -98,7 +103,7 @@ def agent_config(llama_stack_client):
         instructions="You are a helpful assistant",
         sampling_params={
             "strategy": {
-                "type": "greedy",
+                "type": "top_p",
                 "temperature": 1.0,
                 "top_p": 0.9,
             },
@@ -177,7 +182,8 @@ def test_builtin_tool_web_search(llama_stack_client, agent_config):
     assert "tool_execution>" in logs_str
     assert "Tool:brave_search Response:" in logs_str
     assert "mark zuckerberg" in logs_str.lower()
-    assert "No Violation" in logs_str
+    if len(agent_config["output_shields"]) > 0:
+        assert "No Violation" in logs_str
 
 
 def test_builtin_tool_code_execution(llama_stack_client, agent_config):
@@ -206,18 +212,13 @@ def test_builtin_tool_code_execution(llama_stack_client, agent_config):
     assert "Tool:code_interpreter Response" in logs_str
 
 
-def test_code_execution(llama_stack_client):
-    agent_config = AgentConfig(
-        model="meta-llama/Llama-3.1-8B-Instruct",
-        instructions="You are a helpful assistant",
-        toolgroups=[
+def test_code_execution(llama_stack_client, agent_config):
+    agent_config = {
+        **agent_config,
+        "toolgroups": [
             "builtin::code_interpreter",
         ],
-        tool_choice="required",
-        input_shields=[],
-        output_shields=[],
-        enable_session_persistence=False,
-    )
+    }
 
     codex_agent = Agent(llama_stack_client, agent_config)
     session_id = codex_agent.create_session("test-session")
@@ -251,10 +252,8 @@ def test_custom_tool(llama_stack_client, agent_config):
     client_tool = TestClientTool()
     agent_config = {
         **agent_config,
-        "model": "meta-llama/Llama-3.2-3B-Instruct",
         "toolgroups": ["builtin::websearch"],
         "client_tools": [client_tool.get_tool_definition()],
-        "tool_prompt_format": "python_list",
     }
 
     agent = Agent(llama_stack_client, agent_config, client_tools=(client_tool,))

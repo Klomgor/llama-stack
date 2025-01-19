@@ -7,8 +7,8 @@
 import random
 
 import pytest
-from llama_stack.apis.memory import MemoryBankDocument
 
+from llama_stack.apis.memory import MemoryBankDocument
 from llama_stack_client.types.memory_insert_params import Document
 
 
@@ -195,11 +195,10 @@ def test_memory_bank_insert_inline_and_query(
 def test_memory_bank_insert_from_url_and_query(
     llama_stack_client, empty_memory_bank_registry
 ):
-    providers = llama_stack_client.providers.list()
-    assert "memory" in providers
-    assert len(providers["memory"]) > 0
+    providers = [p for p in llama_stack_client.providers.list() if p.api == "memory"]
+    assert len(providers) > 0
 
-    memory_provider_id = providers["memory"][0].provider_id
+    memory_provider_id = providers[0].provider_id
     memory_bank_id = "test_bank"
 
     llama_stack_client.memory_banks.register(

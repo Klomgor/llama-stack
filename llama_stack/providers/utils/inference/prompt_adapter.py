@@ -188,7 +188,7 @@ async def localize_image_content(media: ImageContentItem) -> Tuple[bytes, str]:
 async def convert_image_content_to_url(
     media: ImageContentItem, download: bool = False, include_format: bool = True
 ) -> str:
-    if media.url and not download:
+    if media.url and (not download or media.url.uri.startswith("data")):
         return media.url.uri
 
     content, format = await localize_image_content(media)
@@ -227,9 +227,11 @@ async def completion_request_to_prompt_model_input_info(
 def augment_content_with_response_format_prompt(response_format, content):
     if fmt_prompt := response_format_prompt(response_format):
         if isinstance(content, list):
-            return content + [fmt_prompt]
+            return content + [TextContentItem(text=fmt_prompt)]
+        elif isinstance(content, str):
+            return [TextContentItem(text=content), TextContentItem(text=fmt_prompt)]
         else:
-            return [content, fmt_prompt]
+            return [content, TextContentItem(text=fmt_prompt)]
 
     return content
 

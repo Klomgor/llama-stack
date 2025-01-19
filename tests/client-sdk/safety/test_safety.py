@@ -11,7 +11,6 @@ import pytest
 
 from llama_stack.apis.safety import ViolationLevel
 
-
 VISION_SHIELD_ENABLED_PROVIDERS = {"together"}
 CODE_SCANNER_ENABLED_PROVIDERS = {"ollama", "together", "fireworks"}
 
@@ -54,7 +53,11 @@ def code_scanner_shield_id(available_shields):
 @pytest.fixture(scope="session")
 def model_providers(llama_stack_client):
     return set(
-        [x.provider_id for x in llama_stack_client.providers.list()["inference"]]
+        [
+            x.provider_id
+            for x in llama_stack_client.providers.list()
+            if x.api == "inference"
+        ]
     )
 
 

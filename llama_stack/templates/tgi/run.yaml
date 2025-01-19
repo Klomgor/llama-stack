@@ -1,6 +1,5 @@
 version: '2'
 image_name: tgi
-conda_env: tgi
 apis:
 - agents
 - datasetio
@@ -86,6 +85,9 @@ providers:
   - provider_id: memory-runtime
     provider_type: inline::memory-runtime
     config: {}
+  - provider_id: model-context-protocol
+    provider_type: remote::model-context-protocol
+    config: {}
 metadata_store:
   type: sqlite
   db_path: ${env.SQLITE_STORE_DIR:~/.llama/distributions/tgi}/registry.db
@@ -104,4 +106,10 @@ memory_banks: []
 datasets: []
 scoring_fns: []
 eval_tasks: []
-tool_groups: []
+tool_groups:
+- toolgroup_id: builtin::websearch
+  provider_id: tavily-search
+- toolgroup_id: builtin::memory
+  provider_id: memory-runtime
+- toolgroup_id: builtin::code_interpreter
+  provider_id: code-interpreter

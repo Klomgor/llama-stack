@@ -1,6 +1,5 @@
 version: '2'
 image_name: together
-conda_env: together
 apis:
 - agents
 - datasetio
@@ -92,6 +91,9 @@ providers:
     config: {}
   - provider_id: memory-runtime
     provider_type: inline::memory-runtime
+    config: {}
+  - provider_id: model-context-protocol
+    provider_type: remote::model-context-protocol
     config: {}
 metadata_store:
   type: sqlite

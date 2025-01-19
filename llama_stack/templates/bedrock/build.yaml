@@ -1,5 +1,4 @@
 version: '2'
-name: bedrock
 distribution_spec:
   description: Use AWS Bedrock for running LLM inference and safety
   providers:
@@ -29,4 +28,5 @@ distribution_spec:
     - remote::tavily-search
     - inline::code-interpreter
     - inline::memory-runtime
+    - remote::model-context-protocol
 image_type: conda
