@@ -3,8 +3,8 @@ distribution_spec:
   description: Quick start template for running Llama Stack with several popular providers
   providers:
     inference:
-    - remote::fireworks
     - remote::vllm
+    - inline::sentence-transformers
     vector_io:
     - remote::chromadb
     safety:
@@ -21,4 +21,5 @@ distribution_spec:
 image_type: conda
 additional_pip_packages:
 - asyncpg
+- psycopg2-binary
 - sqlalchemy[asyncio]
